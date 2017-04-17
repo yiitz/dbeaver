@@ -268,6 +268,8 @@
                     <property name="fullyMaterializeLobData" value="true"/>
                     <property name="fullyMaterializeInputStreams" value="true"/>
                     <property name="progressiveStreaming" value="2"/>
+                    <property name="retrieveMessagesFromServerOnGetMessage" value="true"/>
+
                     <parameter name="query-get-active-db" value="SELECT CURRENT_SCHEMA FROM SYSIBM.SYSDUMMY1"/>
                     <parameter name="query-set-active-db" value="SET SCHEMA ?"/>
                     <parameter name="meta-model" value="indexed"/>
@@ -652,6 +654,7 @@
                     <property name="quotechar" value="&quot;"/>
                     <property name="fileExtension" value=".csv"/>
                     <property name="suppressHeaders" value="false"/>
+                    <property name="charset" value="UTF-8"/>
                     <parameter name="supports-stored-code" value="false"/>
                     <!--<file type="jar" path="repo:/drivers/csvjdbc/csvjdbc-1.0-23.jar"/>-->
                     <file type="jar" path="maven:/net.sourceforge.csvjdbc:csvjdbc:RELEASE"/>
@@ -756,7 +759,7 @@
                     description="Apache Drill JDBC"
                     webURL="https://drill.apache.org/"
                     category="Hadoop">
-                    <file type="jar" path="maven:/org.apache.drill.exec:drill-jdbc:RELEASE"/>
+                    <file type="jar" path="maven:/org.apache.drill.exec:drill-jdbc-all:RELEASE"/>
                 </driver>
 
                 <!-- Cloudera -->

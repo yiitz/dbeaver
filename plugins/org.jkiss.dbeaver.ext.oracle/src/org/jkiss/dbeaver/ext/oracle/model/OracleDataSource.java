@@ -27,6 +27,7 @@ import org.jkiss.dbeaver.model.connection.DBPConnectionConfiguration;
 import org.jkiss.dbeaver.model.exec.*;
 import org.jkiss.dbeaver.model.exec.jdbc.*;
 import org.jkiss.dbeaver.model.exec.plan.DBCPlan;
+import org.jkiss.dbeaver.model.exec.plan.DBCPlanStyle;
 import org.jkiss.dbeaver.model.exec.plan.DBCQueryPlanner;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSource;
 import org.jkiss.dbeaver.model.impl.jdbc.JDBCDataSourceInfo;
@@ -40,6 +41,7 @@ import org.jkiss.dbeaver.model.sql.SQLConstants;
 import org.jkiss.dbeaver.model.sql.SQLState;
 import org.jkiss.dbeaver.model.struct.*;
 import org.jkiss.dbeaver.ui.UIUtils;
+import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.CommonUtils;
 
 import java.io.PrintWriter;
@@ -204,6 +206,15 @@ public class OracleDataSource extends JDBCDataSource
     }
 
     @Override
+    public ErrorType discoverErrorType(@NotNull Throwable error) {
+        Throwable rootCause = GeneralUtils.getRootCause(error);
+        if (rootCause instanceof SQLException && ((SQLException) rootCause).getErrorCode() == OracleConstants.EC_FEATURE_NOT_SUPPORTED) {
+            return ErrorType.FEATURE_UNSUPPORTED;
+        }
+        return super.discoverErrorType(error);
+    }
+
+    @Override
     protected Map<String, String> getInternalConnectionProperties(DBRProgressMonitor monitor, String purpose) throws DBCException {
         Map<String, String> connectionsProps = new HashMap<>();
         // Program name
@@ -253,6 +264,14 @@ public class OracleDataSource extends JDBCDataSource
     @Association
     public Collection<OracleRole> getRoles(DBRProgressMonitor monitor) throws DBException {
         return roleCache.getAllObjects(monitor, this);
+    }
+
+    public OracleGrantee getGrantee(DBRProgressMonitor monitor, String name) throws DBException {
+        OracleUser user = userCache.getObject(monitor, this, name);
+        if (user != null) {
+            return user;
+        }
+        return roleCache.getObject(monitor, this, name);
     }
 
     @Association
@@ -437,11 +456,18 @@ public class OracleDataSource extends JDBCDataSource
         }
     }
 
+    @NotNull
     @Override
-    public DBCPlan planQueryExecution(DBCSession session, String query) throws DBCException {
-        OraclePlanAnalyser plan = new OraclePlanAnalyser(this, query);
-        plan.explain((JDBCSession) session);
+    public DBCPlan planQueryExecution(@NotNull DBCSession session, @NotNull String query) throws DBException {
+        OraclePlanAnalyser plan = new OraclePlanAnalyser(this, (JDBCSession) session, query);
+        plan.explain();
         return plan;
+    }
+
+    @NotNull
+    @Override
+    public DBCPlanStyle getPlanStyle() {
+        return DBCPlanStyle.PLAN;
     }
 
     @Nullable
@@ -504,7 +530,8 @@ public class OracleDataSource extends JDBCDataSource
 
     @Nullable
     public String getPlanTableName(JDBCSession session)
-        throws SQLException {
+        throws DBException
+    {
         if (planTableName == null) {
             String[] candidateNames;
             String tableName = getContainer().getPreferenceStore().getString(OracleConstants.PREF_EXPLAIN_TABLE_NAME);
@@ -538,8 +565,12 @@ public class OracleDataSource extends JDBCDataSource
         return planTableName;
     }
 
-    private String createPlanTable(JDBCSession session, String tableName) throws SQLException {
-        JDBCUtils.executeSQL(session, OracleConstants.PLAN_TABLE_DEFINITION.replace("${TABLE_NAME}", tableName));
+    private String createPlanTable(JDBCSession session, String tableName) throws DBException {
+        try {
+            JDBCUtils.executeSQL(session, OracleConstants.PLAN_TABLE_DEFINITION.replace("${TABLE_NAME}", tableName));
+        } catch (SQLException e) {
+            throw new DBException("Error creating PLAN table", e, this);
+        }
         return tableName;
     }
 

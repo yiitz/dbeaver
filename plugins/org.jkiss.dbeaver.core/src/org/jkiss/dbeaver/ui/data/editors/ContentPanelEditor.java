@@ -16,11 +16,17 @@
  */
 package org.jkiss.dbeaver.ui.data.editors;
 
+import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IContributionItem;
 import org.eclipse.jface.action.IContributionManager;
+import org.eclipse.jface.action.MenuManager;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.StyledText;
-import org.eclipse.swt.events.*;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.graphics.Rectangle;
 import org.eclipse.swt.widgets.*;
@@ -37,18 +43,19 @@ import org.jkiss.dbeaver.model.data.DBDContent;
 import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.DBRRunnableWithProgress;
+import org.jkiss.dbeaver.model.runtime.DefaultProgressMonitor;
 import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSTypedObject;
 import org.jkiss.dbeaver.ui.DBeaverIcons;
 import org.jkiss.dbeaver.ui.UIIcon;
 import org.jkiss.dbeaver.ui.UIUtils;
-import org.jkiss.dbeaver.ui.controls.resultset.panel.ViewValuePanel;
 import org.jkiss.dbeaver.ui.data.IStreamValueEditor;
 import org.jkiss.dbeaver.ui.data.IStreamValueManager;
 import org.jkiss.dbeaver.ui.data.IValueController;
 import org.jkiss.dbeaver.ui.data.registry.StreamValueManagerDescriptor;
 import org.jkiss.dbeaver.ui.data.registry.ValueManagerRegistry;
+import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -57,9 +64,7 @@ import java.util.List;
 /**
 * ControlPanelEditor
 */
-public class ContentPanelEditor extends BaseValueEditor<Control> {
-
-    public static final String PREF_TEXT_EDITOR_WORD_WRAP = "content.text.editor.word-wrap";
+public class ContentPanelEditor extends BaseValueEditor<Control> implements IAdaptable {
 
     private static final Log log = Log.getLog(ContentPanelEditor.class);
 
@@ -67,7 +72,7 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
 
     private Map<StreamValueManagerDescriptor, IStreamValueManager.MatchType> streamManagers;
     private StreamValueManagerDescriptor curStreamManager;
-    private IStreamValueEditor streamEditor;
+    private IStreamValueEditor<Control> streamEditor;
     private Control editorControl;
 
     public ContentPanelEditor(IValueController controller) {
@@ -119,7 +124,7 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
             log.warn("NULL content editor.");
         } else {
             try {
-                streamEditor.extractEditorValue(VoidProgressMonitor.INSTANCE, control, content);
+                streamEditor.extractEditorValue(new VoidProgressMonitor(), control, content);
             } catch (Throwable e) {
                 log.debug(e);
                 valueController.showMessage(e.getMessage(), DBPMessageType.ERROR);
@@ -152,52 +157,8 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
     }
 
     private void detectStreamManager(final DBDContent content) {
-        DBeaverUI.runInUI(new DBRRunnableWithProgress() {
-            @Override
-            public void run(DBRProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-                monitor.beginTask("Detect appropriate editor", 1);
-                try {
-                    streamManagers = ValueManagerRegistry.getInstance().getApplicableStreamManagers(monitor, valueController.getValueType(), content);
-                    String savedManagerId = valueToManagerMap.get(makeValueId());
-                    if (savedManagerId != null) {
-                        curStreamManager = findManager(savedManagerId);
-                    }
-                    if (curStreamManager == null) {
-                        curStreamManager = findManager(IStreamValueManager.MatchType.EXCLUSIVE);
-                        if (curStreamManager == null)
-                            curStreamManager = findManager(IStreamValueManager.MatchType.PRIMARY);
-                        if (curStreamManager == null)
-                            curStreamManager = findManager(IStreamValueManager.MatchType.DEFAULT);
-                        if (curStreamManager == null)
-                            curStreamManager = findManager(IStreamValueManager.MatchType.APPLIES);
-                        if (curStreamManager == null) {
-                            throw new DBException("Can't find appropriate stream manager");
-                        }
-                    }
-                } catch (Exception e) {
-                    valueController.showMessage(e.getMessage(), DBPMessageType.ERROR);
-                } finally {
-                    monitor.done();
-                }
-            }
-
-            private StreamValueManagerDescriptor findManager(IStreamValueManager.MatchType matchType) {
-                for (Map.Entry<StreamValueManagerDescriptor, IStreamValueManager.MatchType> entry : streamManagers.entrySet()) {
-                    if (entry.getValue() == matchType) {
-                        return entry.getKey();
-                    }
-                }
-                return null;
-            }
-            private StreamValueManagerDescriptor findManager(String id) {
-                for (Map.Entry<StreamValueManagerDescriptor, IStreamValueManager.MatchType> entry : streamManagers.entrySet()) {
-                    if (entry.getKey().getId().equals(id)) {
-                        return entry.getKey();
-                    }
-                }
-                return null;
-            }
-        });
+        StreamManagerDetectJob detectJob = new StreamManagerDetectJob(content);
+        RuntimeUtils.runTask(detectJob, "Detect stream editor", 5000);
     }
 
     private void setStreamManager(StreamValueManagerDescriptor newManager) {
@@ -235,18 +196,23 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
         return dsId + ":" + valueId;
     }
 
-    public static void setEditorSettings(Control control) {
-        if (control instanceof StyledText) {
-            if (ViewValuePanel.getPanelSettings().getBoolean(PREF_TEXT_EDITOR_WORD_WRAP)) {
-                ((StyledText) control).setWordWrap(true);
+    @Override
+    public <T> T getAdapter(Class<T> adapter) {
+        if (streamEditor != null) {
+            if (adapter.isAssignableFrom(streamEditor.getClass())) {
+                return adapter.cast(streamEditor);
+            }
+            if (streamEditor instanceof IAdaptable) {
+                return ((IAdaptable) streamEditor).getAdapter(adapter);
             }
         }
+        return null;
     }
 
     private class ContentTypeSwitchAction extends Action implements SelectionListener {
         private Menu menu;
 
-        public ContentTypeSwitchAction() {
+        ContentTypeSwitchAction() {
             super(null, Action.AS_DROP_DOWN_MENU);
             setImageDescriptor(DBeaverIcons.getImageDescriptor(UIIcon.PAGES));
             setToolTipText("Content viewer settings");
@@ -282,20 +248,14 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
                     item.setData(manager);
                     item.addSelectionListener(this);
                 }
-                if (editorControl instanceof StyledText){
-                    new MenuItem(menu, SWT.SEPARATOR);
-                    final MenuItem wwItem = new MenuItem(menu, SWT.CHECK);
-                    wwItem.setText("Word Wrap");
-                    wwItem.setSelection(((StyledText) editorControl).getWordWrap());
-                    wwItem.addSelectionListener(new SelectionAdapter() {
-                        @Override
-                        public void widgetSelected(SelectionEvent e) {
-                            boolean newWW = !((StyledText) editorControl).getWordWrap();
-                            wwItem.setSelection(newWW);
-                            ((StyledText) editorControl).setWordWrap(newWW);
-                            ViewValuePanel.getPanelSettings().put(PREF_TEXT_EDITOR_WORD_WRAP, newWW);
-                        }
-                    });
+                MenuManager menuManager = new MenuManager();
+                try {
+                    streamEditor.contributeSettings(menuManager, editorControl);
+                    for (IContributionItem item : menuManager.getItems()) {
+                        item.fill(menu, -1);
+                    }
+                } catch (DBCException e) {
+                    log.error(e);
                 }
                 toolBar.addDisposeListener(new DisposeListener() {
                     @Override
@@ -316,9 +276,12 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
         public void widgetSelected(SelectionEvent e) {
             for (MenuItem item : menu.getItems()) {
                 if (item.getSelection()) {
-                    StreamValueManagerDescriptor newManager = (StreamValueManagerDescriptor) item.getData();
-                    if (newManager != curStreamManager) {
-                        setStreamManager(newManager);
+                    Object itemData = item.getData();
+                    if (itemData instanceof StreamValueManagerDescriptor) {
+                        StreamValueManagerDescriptor newManager = (StreamValueManagerDescriptor) itemData;
+                        if (newManager != curStreamManager) {
+                            setStreamManager(newManager);
+                        }
                     }
                 }
             }
@@ -327,6 +290,60 @@ public class ContentPanelEditor extends BaseValueEditor<Control> {
         @Override
         public void widgetDefaultSelected(SelectionEvent e) {
 
+        }
+    }
+
+    private class StreamManagerDetectJob implements DBRRunnableWithProgress {
+        private final DBDContent content;
+
+        StreamManagerDetectJob(DBDContent content) {
+            this.content = content;
+        }
+
+        @Override
+        public void run(DBRProgressMonitor monitor) {
+            monitor.beginTask("Detect appropriate editor", 1);
+            try {
+                streamManagers = ValueManagerRegistry.getInstance().getApplicableStreamManagers(monitor, valueController.getValueType(), content);
+                String savedManagerId = valueToManagerMap.get(makeValueId());
+                if (savedManagerId != null) {
+                    curStreamManager = findManager(savedManagerId);
+                }
+                if (curStreamManager == null) {
+                    curStreamManager = findManager(IStreamValueManager.MatchType.EXCLUSIVE);
+                    if (curStreamManager == null)
+                        curStreamManager = findManager(IStreamValueManager.MatchType.PRIMARY);
+                    if (curStreamManager == null)
+                        curStreamManager = findManager(IStreamValueManager.MatchType.DEFAULT);
+                    if (curStreamManager == null)
+                        curStreamManager = findManager(IStreamValueManager.MatchType.APPLIES);
+                    if (curStreamManager == null) {
+                        throw new DBException("Can't find appropriate stream manager");
+                    }
+                }
+            } catch (Exception e) {
+                valueController.showMessage(e.getMessage(), DBPMessageType.ERROR);
+            } finally {
+                monitor.done();
+            }
+        }
+
+        private StreamValueManagerDescriptor findManager(IStreamValueManager.MatchType matchType) {
+            for (Map.Entry<StreamValueManagerDescriptor, IStreamValueManager.MatchType> entry : streamManagers.entrySet()) {
+                if (entry.getValue() == matchType) {
+                    return entry.getKey();
+                }
+            }
+            return null;
+        }
+
+        private StreamValueManagerDescriptor findManager(String id) {
+            for (Map.Entry<StreamValueManagerDescriptor, IStreamValueManager.MatchType> entry : streamManagers.entrySet()) {
+                if (entry.getKey().getId().equals(id)) {
+                    return entry.getKey();
+                }
+            }
+            return null;
         }
     }
 }

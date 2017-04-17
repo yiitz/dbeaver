@@ -220,7 +220,7 @@ public class PropertyTreeViewer extends TreeViewer {
         }
 
         disposeOldEditor();
-        UIUtils.packColumns(getTree(), true, new float[]{0.1f, 0.9f});
+        UIUtils.packColumns(getTree(), true, new float[]{0.5f, 0.5f});
     }
 
     private Map<String, TreeNode> loadTreeNodes(@Nullable DBRProgressMonitor monitor, TreeNode parent, DBPPropertySource propertySource)
@@ -328,9 +328,8 @@ public class PropertyTreeViewer extends TreeViewer {
         // Make an editor
         final Tree treeControl = super.getTree();
         treeEditor = new TreeEditor(treeControl);
-        treeEditor.horizontalAlignment = SWT.RIGHT;
+        treeEditor.horizontalAlignment = SWT.CENTER;
         treeEditor.verticalAlignment = SWT.CENTER;
-        treeEditor.grabHorizontal = true;
         treeEditor.minimumWidth = 50;
 
         treeControl.addSelectionListener(new SelectionListener() {
@@ -457,6 +456,11 @@ public class PropertyTreeViewer extends TreeViewer {
                         }
                     }
                 });
+                treeEditor.verticalAlignment = cellEditor.getLayoutData().verticalAlignment;
+                treeEditor.horizontalAlignment = cellEditor.getLayoutData().horizontalAlignment;
+                treeEditor.minimumWidth = cellEditor.getLayoutData().minimumWidth;
+                treeEditor.grabHorizontal = cellEditor.getLayoutData().grabHorizontal;
+
                 treeEditor.setEditor(editorControl, item, 1);
             }
             if (isDef) {
@@ -547,6 +551,13 @@ public class PropertyTreeViewer extends TreeViewer {
     protected void contributeContextMenu(IMenuManager manager, Object node, String category, DBPPropertyDescriptor property)
     {
 
+    }
+
+    public DBPPropertyDescriptor getPropertyFromElement(Object element) {
+        if (element instanceof TreeNode) {
+            return ((TreeNode) element).property;
+        }
+        return null;
     }
 
     private Object getPropertyValue(TreeNode prop)
@@ -754,6 +765,9 @@ public class PropertyTreeViewer extends TreeViewer {
                         str.append("]");
                         return str.toString();
                     }
+                    if (propertyValue instanceof Boolean) {
+                        return "";
+                    }
                     return ObjectViewerRenderer.getCellString(propertyValue, isName);
                 } else {
                     return ""; //$NON-NLS-1$
@@ -833,7 +847,7 @@ public class PropertyTreeViewer extends TreeViewer {
                 tree.setSortColumn(column);
                 tree.setSortDirection(sortDirection);
 
-                PropertyTreeViewer.this.setSorter(new ViewerSorter(collator) {
+                PropertyTreeViewer.this.setComparator(new ViewerComparator(collator) {
                     @Override
                     public int compare(Viewer viewer, Object e1, Object e2)
                     {
@@ -902,7 +916,7 @@ public class PropertyTreeViewer extends TreeViewer {
                         }
                         final TreeNode node = (TreeNode) event.item.getData();
                         if (node != null && node.property != null) {
-                            renderer.paintCell(event, node, event.index, node.isEditable());
+                            renderer.paintCell(event, node, event.item, event.index, node.isEditable());
                         }
                     }
                     break;

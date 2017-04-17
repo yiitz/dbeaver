@@ -36,6 +36,7 @@ import org.eclipse.ui.texteditor.FindReplaceAction;
 import org.eclipse.ui.texteditor.ITextEditorActionDefinitionIds;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
+import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.core.CoreCommands;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.core.DBeaverActivator;
@@ -54,6 +55,7 @@ import org.jkiss.dbeaver.ui.data.managers.BaseValueManager;
 import org.jkiss.dbeaver.ui.dialogs.sql.ViewSQLDialog;
 import org.jkiss.dbeaver.ui.editors.MultiPageAbstractEditor;
 import org.jkiss.dbeaver.utils.GeneralUtils;
+import org.jkiss.utils.CommonUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -67,6 +69,7 @@ public class ResultSetCommandHandler extends AbstractHandler {
 
     public static final String CMD_TOGGLE_PANELS = "org.jkiss.dbeaver.core.resultset.grid.togglePreview";
     public static final String CMD_TOGGLE_MODE = "org.jkiss.dbeaver.core.resultset.toggleMode";
+    public static final String CMD_FOCUS_FILTER = "org.jkiss.dbeaver.core.resultset.focus.filter";
     public static final String CMD_SWITCH_PRESENTATION = "org.jkiss.dbeaver.core.resultset.switchPresentation";
     public static final String CMD_ROW_FIRST = "org.jkiss.dbeaver.core.resultset.row.first";
     public static final String CMD_ROW_PREVIOUS = "org.jkiss.dbeaver.core.resultset.row.previous";
@@ -109,7 +112,6 @@ public class ResultSetCommandHandler extends AbstractHandler {
         if (rsv == null) {
             return null;
         }
-        boolean shiftPressed = event.getTrigger() instanceof Event && ((((Event)event.getTrigger()).stateMask & SWT.SHIFT) == SWT.SHIFT);
         String actionId = event.getCommand().getId();
         IResultSetPresentation presentation = rsv.getActivePresentation();
         switch (actionId) {
@@ -121,6 +123,9 @@ public class ResultSetCommandHandler extends AbstractHandler {
                 break;
             case CMD_TOGGLE_PANELS:
                 rsv.showPanels(!rsv.isPanelsVisible());
+                break;
+            case CMD_FOCUS_FILTER:
+                rsv.switchFilterFocus();
                 break;
             case CMD_SWITCH_PRESENTATION:
                 rsv.switchPresentation();
@@ -158,10 +163,12 @@ public class ResultSetCommandHandler extends AbstractHandler {
                 }
                 break;
             case CMD_ROW_ADD:
-                rsv.addNewRow(false, shiftPressed);
-                break;
             case CMD_ROW_COPY:
-                rsv.addNewRow(true, shiftPressed);
+                boolean copy = actionId.equals(CMD_ROW_COPY);
+                boolean shiftPressed = event.getTrigger() instanceof Event && ((((Event)event.getTrigger()).stateMask & SWT.SHIFT) == SWT.SHIFT);
+                boolean insertAfter = rsv.getPreferenceStore().getBoolean(DBeaverPreferences.RS_EDIT_NEW_ROWS_AFTER);
+                if (shiftPressed) insertAfter = !insertAfter;
+                rsv.addNewRow(copy, insertAfter);
                 break;
             case CMD_ROW_DELETE:
             case IWorkbenchCommandConstants.EDIT_DELETE:
@@ -246,7 +253,11 @@ public class ResultSetCommandHandler extends AbstractHandler {
                     if (buffer.length() > 0) {
                         buffer.append("\t");
                     }
-                    buffer.append(attr.getName());
+                    String colName = attr.getLabel();
+                    if (CommonUtils.isEmpty(colName)) {
+                        colName = attr.getName();
+                    }
+                    buffer.append(colName);
                 }
                 ResultSetUtils.copyToClipboard(buffer.toString());
                 break;

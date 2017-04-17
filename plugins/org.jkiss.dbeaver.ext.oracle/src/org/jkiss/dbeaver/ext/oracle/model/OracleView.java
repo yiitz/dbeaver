@@ -107,12 +107,6 @@ public class OracleView extends OracleTableBase implements OracleSourceObject
     }
 
     @Override
-    public OracleSchema getSchema()
-    {
-        return getContainer();
-    }
-
-    @Override
     public OracleSourceType getSourceType()
     {
         return OracleSourceType.VIEW;
@@ -203,7 +197,19 @@ public class OracleView extends OracleTableBase implements OracleSourceObject
             throw new DBCException(e, getDataSource());
         }
         if (viewText != null) {
-            viewText = "CREATE OR REPLACE VIEW " + getFullyQualifiedName(DBPEvaluationContext.DDL) + " AS\n" + viewText;
+            StringBuilder paramsList = new StringBuilder();
+            Collection<OracleTableColumn> attributes = getAttributes(monitor);
+            if (attributes != null) {
+                paramsList.append("\n(");
+                boolean first = true;
+                for (OracleTableColumn column : attributes) {
+                    if (!first) paramsList.append(",");
+                    paramsList.append(DBUtils.getQuotedIdentifier(column));
+                    first = false;
+                }
+                paramsList.append(")");
+            }
+            viewText = "CREATE OR REPLACE VIEW " + getFullyQualifiedName(DBPEvaluationContext.DDL) + paramsList + "\nAS\n" + viewText;
         }
         additionalInfo.setText(viewText);
     }

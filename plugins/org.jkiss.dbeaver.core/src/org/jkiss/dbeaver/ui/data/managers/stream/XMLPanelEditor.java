@@ -16,9 +16,10 @@
  */
 package org.jkiss.dbeaver.ui.data.managers.stream;
 
-import org.eclipse.jface.action.IContributionManager;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.StyledText;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.IEditorSite;
 import org.eclipse.ui.PartInitException;
@@ -26,21 +27,20 @@ import org.jkiss.code.NotNull;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.model.DBPMessageType;
 import org.jkiss.dbeaver.model.data.DBDContent;
-import org.jkiss.dbeaver.model.exec.DBCException;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
-import org.jkiss.dbeaver.ui.data.IStreamValueEditor;
+import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.data.IValueController;
-import org.jkiss.dbeaver.ui.data.editors.ContentPanelEditor;
 import org.jkiss.dbeaver.ui.editors.StringEditorInput;
 import org.jkiss.dbeaver.ui.editors.SubEditorSite;
 import org.jkiss.dbeaver.ui.editors.content.ContentEditorInput;
+import org.jkiss.dbeaver.ui.editors.text.BaseTextEditor;
 import org.jkiss.dbeaver.ui.editors.xml.XMLEditor;
 import org.jkiss.dbeaver.utils.RuntimeUtils;
 
 /**
 * XMLPanelEditor
 */
-public class XMLPanelEditor implements IStreamValueEditor<StyledText> {
+public class XMLPanelEditor extends AbstractTextPanelEditor {
 
     private IValueController valueController;
     private IEditorSite subSite;
@@ -59,8 +59,17 @@ public class XMLPanelEditor implements IStreamValueEditor<StyledText> {
             return new StyledText(valueController.getEditPlaceholder(), SWT.NONE);
         }
         editor.createPartControl(valueController.getEditPlaceholder());
-        ContentPanelEditor.setEditorSettings(editor.getEditorControl());
-        return editor.getEditorControl();
+        // TODO: move to base class. Refactor resource release
+        StyledText editorControl = editor.getEditorControl();
+        assert editorControl != null;
+        initEditorSettings(editorControl);
+        editorControl.addDisposeListener(new DisposeListener() {
+            @Override
+            public void widgetDisposed(DisposeEvent e) {
+                editor.releaseEditorInput();
+            }
+        });
+        return editorControl;
     }
 
     @Override
@@ -71,6 +80,7 @@ public class XMLPanelEditor implements IStreamValueEditor<StyledText> {
             monitor.subTask("Prime XML value");
             IEditorInput sqlInput = new ContentEditorInput(valueController, null, null, monitor);
             editor.init(subSite, sqlInput);
+            applyEditorStyle();
         } catch (Exception e) {
             throw new DBException("Can't load XML vaue", e);
         } finally {
@@ -81,6 +91,10 @@ public class XMLPanelEditor implements IStreamValueEditor<StyledText> {
     @Override
     public void extractEditorValue(@NotNull DBRProgressMonitor monitor, @NotNull StyledText control, @NotNull DBDContent value) throws DBException
     {
+        if (valueController.isReadOnly() || !editor.isDirty()) {
+            return;
+        }
+
         monitor.beginTask("Read XML value", 1);
         try {
             monitor.subTask("Read XML value");
@@ -95,9 +109,7 @@ public class XMLPanelEditor implements IStreamValueEditor<StyledText> {
     }
 
     @Override
-    public void contributeActions(@NotNull IContributionManager manager, @NotNull StyledText control) throws DBCException {
-
+    protected BaseTextEditor getTextEditor() {
+        return editor;
     }
-
-
 }

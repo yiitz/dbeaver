@@ -222,7 +222,7 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
             return;
         }
         activated = true;
-        propertiesPanel = new TabbedFolderPageProperties(getEditorInput());
+        propertiesPanel = new TabbedFolderPageProperties(this, getEditorInput());
 
         propertiesPanel.createControl(propsPlaceholder);
 
@@ -440,7 +440,7 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
             DBIcon.TREE_INFO,
             "General information",
             false,
-            new TabbedFolderPageProperties(getEditorInput())));
+            new TabbedFolderPageProperties(this, getEditorInput())));
     }
 
     private void makeDatabaseEditorTabs(final IDatabaseEditor part, final List<TabbedFolderInfo> tabList)
@@ -463,7 +463,7 @@ public class ObjectPropertiesEditor extends AbstractDatabaseObjectEditor<DBSObje
                 if (node.needsInitialization()) {
                     DBeaverUI.runInProgressService(tabsCollector);
                 } else {
-                    tabsCollector.run(VoidProgressMonitor.INSTANCE);
+                    tabsCollector.run(new VoidProgressMonitor());
                 }
             } catch (InvocationTargetException e) {
                 log.error(e.getTargetException());

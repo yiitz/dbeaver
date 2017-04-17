@@ -33,7 +33,6 @@ import org.eclipse.ui.*;
 import org.eclipse.ui.menus.WorkbenchWindowControlContribution;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
-import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.DBeaverUI;
 import org.jkiss.dbeaver.model.DBPContextProvider;
 import org.jkiss.dbeaver.model.exec.DBCExecutionContext;
@@ -53,16 +52,15 @@ import org.jkiss.dbeaver.ui.perspective.AbstractPartListener;
  * DataSource Toolbar
  */
 public class TransactionMonitorToolbar {
-    private static final Log log = Log.getLog(TransactionMonitorToolbar.class);
 
-    public static final int MONITOR_UPDATE_DELAY = 250;
+    private static final int MONITOR_UPDATE_DELAY = 250;
 
     private static final RGB COLOR_FULL = QueryLogViewer.COLOR_LIGHT_RED;
     private static final RGB COLOR_EMPTY = QueryLogViewer.COLOR_LIGHT_GREEN;
 
     private IWorkbenchWindow workbenchWindow;
 
-    public TransactionMonitorToolbar(IWorkbenchWindow workbenchWindow) {
+    TransactionMonitorToolbar(IWorkbenchWindow workbenchWindow) {
         this.workbenchWindow = workbenchWindow;
     }
 
@@ -95,8 +93,10 @@ public class TransactionMonitorToolbar {
     private class RefreshJob extends Job {
         private final MonitorPanel monitorPanel;
 
-        public RefreshJob(MonitorPanel monitorPanel) {
+        RefreshJob(MonitorPanel monitorPanel) {
             super("Refresh transaction monitor");
+            setSystem(true);
+            setUser(false);
             this.monitorPanel = monitorPanel;
         }
 
@@ -113,7 +113,7 @@ public class TransactionMonitorToolbar {
         private RefreshJob refreshJob;
         private QMTransactionState txnState;
 
-        public MonitorPanel(Composite parent) {
+        MonitorPanel(Composite parent) {
             super(parent, SWT.BORDER);
             //setBackground(parent.getDisplay().getSystemColor(SWT.COLOR_WIDGET_BACKGROUND));
             setCursor(parent.getDisplay().getSystemCursor(SWT.CURSOR_HAND));
@@ -170,16 +170,14 @@ public class TransactionMonitorToolbar {
                 if (updateCount >= maxCount) {
                     bg = sharedColors.getColor(COLOR_FULL);
                 } else {
-                    RGB startColor = COLOR_EMPTY;
-                    RGB endColor = COLOR_FULL;
-                    final RGB rgb = UIUtils.blend(endColor, startColor, ratio);
+                    final RGB rgb = UIUtils.blend(COLOR_FULL, COLOR_EMPTY, ratio);
                     bg = sharedColors.getColor(rgb);
                 }
             }
             Rectangle bounds = getBounds();
             e.gc.setBackground(bg);
             e.gc.fillRectangle(bounds.x, bounds.y, bounds.width, bounds.height);
-            String count = "";
+            String count;
             if (txnState == null) {
                 count = "N/A";
             } else if (!txnState.isTransactionMode()) {
@@ -190,14 +188,14 @@ public class TransactionMonitorToolbar {
                 count = "None";
             }
             final Point textSize = e.gc.textExtent(count);
-            e.gc.drawText(count, bounds.x + (bounds.width - textSize.x) / 2 - 2, bounds.y + 2);
+            e.gc.drawText(count, bounds.x + (bounds.width - textSize.x) / 2 - 2, bounds.y + (bounds.height - textSize.y) / 2 - 1);
         }
 
         public void refresh() {
             refreshJob.schedule(MONITOR_UPDATE_DELAY);
         }
 
-        public void updateTransactionsInfo(DBRProgressMonitor monitor) {
+        void updateTransactionsInfo(DBRProgressMonitor monitor) {
             monitor.beginTask("Extract active transaction info", 1);
 
             DBCExecutionContext executionContext = getActiveExecutionContext();

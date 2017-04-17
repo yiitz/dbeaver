@@ -589,6 +589,9 @@ public final class DBUtils {
     @Nullable
     public static DBDAttributeBinding findBinding(@NotNull DBDAttributeBinding[] bindings, @Nullable DBSAttributeBase attribute)
     {
+        if (attribute == null) {
+            return null;
+        }
         for (DBDAttributeBinding binding : bindings) {
             if (binding.matches(attribute, true)) {
                 return binding;
@@ -901,7 +904,7 @@ public final class DBUtils {
         } else if (fetchAllTransformer != null) {
             queryText = fetchAllTransformer.transformQueryString(sqlQuery);
         } else {
-            queryText = sqlQuery.getQuery();
+            queryText = sqlQuery.getText();
         }
 
         DBCStatement dbStat = statementType == DBCStatementType.SCRIPT ?
@@ -1007,6 +1010,15 @@ public final class DBUtils {
         if (container != null) {
             container.fireEvent(new DBPEvent(DBPEvent.Action.OBJECT_SELECT, object, select));
         }
+    }
+
+    /**
+     * Refresh object in UI
+     */
+    public static void fireObjectRefresh(DBSObject object)
+    {
+        // Select with true parameter is the same as refresh
+        fireObjectSelect(object, true);
     }
 
     @NotNull
@@ -1391,4 +1403,13 @@ public final class DBUtils {
         return purpose == null ? productTitle : productTitle + " - " + purpose;
     }
 
+    @NotNull
+    public static DBPErrorAssistant.ErrorType discoverErrorType(@NotNull DBPDataSource dataSource, @NotNull Throwable error) {
+        DBPErrorAssistant errorAssistant = getAdapter(DBPErrorAssistant.class, dataSource);
+        if (errorAssistant != null) {
+            return ((DBPErrorAssistant) dataSource).discoverErrorType(error);
+        }
+
+        return DBPErrorAssistant.ErrorType.NORMAL;
+    }
 }

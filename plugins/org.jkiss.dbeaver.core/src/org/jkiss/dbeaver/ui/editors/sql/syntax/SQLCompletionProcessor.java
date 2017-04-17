@@ -18,10 +18,7 @@ package org.jkiss.dbeaver.ui.editors.sql.syntax;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
-import org.eclipse.jface.text.ITextViewer;
-import org.eclipse.jface.text.Position;
-import org.eclipse.jface.text.Region;
-import org.eclipse.jface.text.TextPresentation;
+import org.eclipse.jface.text.*;
 import org.eclipse.jface.text.contentassist.*;
 import org.eclipse.jface.text.templates.Template;
 import org.jkiss.code.NotNull;
@@ -31,11 +28,13 @@ import org.jkiss.dbeaver.model.*;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.model.sql.SQLConstants;
-import org.jkiss.dbeaver.model.sql.SQLQuery;
+import org.jkiss.dbeaver.model.sql.SQLScriptElement;
 import org.jkiss.dbeaver.model.struct.DBSObject;
 import org.jkiss.dbeaver.model.struct.DBSObjectContainer;
 import org.jkiss.dbeaver.model.struct.DBSObjectFilter;
 import org.jkiss.dbeaver.model.struct.DBSObjectReference;
+import org.jkiss.dbeaver.registry.sql.SQLCommandHandlerDescriptor;
+import org.jkiss.dbeaver.registry.sql.SQLCommandsRegistry;
 import org.jkiss.dbeaver.ui.TextUtils;
 import org.jkiss.dbeaver.ui.UIUtils;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditorBase;
@@ -99,8 +98,19 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
             return makeTemplateProposals(viewer, request);
         }
 
-        request.queryType = null;
+        try {
+            String commandPrefix = editor.getSyntaxManager().getControlCommandPrefix();
+            if (request.wordDetector.getStartOffset() >= commandPrefix.length() &&
+                viewer.getDocument().get(request.wordDetector.getStartOffset() - commandPrefix.length(), commandPrefix.length()).equals(commandPrefix))
+            {
+                return makeCommandProposals(request, request.wordPart);
+            }
+        } catch (BadLocationException e) {
+            log.debug(e);
+        }
+
         String searchPrefix = request.wordPart;
+        request.queryType = null;
         {
             final String prevKeyWord = wordDetector.getPrevKeyWord();
             if (!CommonUtils.isEmpty(prevKeyWord)) {
@@ -203,6 +213,20 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
         return ArrayUtils.toArray(ICompletionProposal.class, request.proposals);
     }
 
+    private ICompletionProposal[] makeCommandProposals(SQLCompletionAnalyzer.CompletionRequest request, String prefix) {
+        final String controlCommandPrefix = editor.getSyntaxManager().getControlCommandPrefix();
+        if (prefix.startsWith(controlCommandPrefix)) {
+            prefix = prefix.substring(controlCommandPrefix.length());
+        }
+        final List<SQLCommandCompletionProposal> commandProposals = new ArrayList<>();
+        for (SQLCommandHandlerDescriptor command : SQLCommandsRegistry.getInstance().getCommandHandlers()) {
+            if (command.getId().startsWith(prefix)) {
+                commandProposals.add(new SQLCommandCompletionProposal(request, command));
+            }
+        }
+        return commandProposals.toArray(new ICompletionProposal[commandProposals.size()]);
+    }
+
     @NotNull
     private ICompletionProposal[] makeTemplateProposals(ITextViewer viewer, SQLCompletionAnalyzer.CompletionRequest request) {
         String wordPart = request.wordPart.toLowerCase();
@@ -243,13 +267,13 @@ public class SQLCompletionProcessor implements IContentAssistProcessor
     public IContextInformation[] computeContextInformation(
         ITextViewer viewer, int documentOffset)
     {
-        SQLQuery statementInfo = editor.extractQueryAtPos(documentOffset);
-        if (statementInfo == null || CommonUtils.isEmpty(statementInfo.getQuery())) {
+        SQLScriptElement statementInfo = editor.extractQueryAtPos(documentOffset);
+        if (statementInfo == null || CommonUtils.isEmpty(statementInfo.getText())) {
             return null;
         }
 
         IContextInformation[] result = new IContextInformation[1];
-        result[0] = new ContextInformation(statementInfo.getQuery(), statementInfo.getQuery());
+        result[0] = new ContextInformation(statementInfo.getText(), statementInfo.getText());
         return result;
     }
 

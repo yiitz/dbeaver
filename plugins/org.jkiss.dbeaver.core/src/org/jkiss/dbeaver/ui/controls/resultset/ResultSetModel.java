@@ -390,7 +390,7 @@ public class ResultSetModel {
                 log.error("Error getting [" + attr.getName() + "] value", e);
             }
         }
-        if ((value instanceof DBDValue && value == oldValue) || !CommonUtils.equalObjects(oldValue, value)) {
+        if ((value instanceof DBDValue && value == oldValue && ((DBDValue) value).isModified()) || !CommonUtils.equalObjects(oldValue, value)) {
             // If DBDValue was updated (kind of CONTENT?) or actual value was changed
             if (ownerValue == null && DBUtils.isNullValue(oldValue) && DBUtils.isNullValue(value)) {
                 // Both nulls - nothing to update
@@ -678,6 +678,7 @@ public class ResultSetModel {
         this.updateInProgress = updateInProgress;
     }
 
+    @NotNull
     ResultSetRow addNewRow(int rowNum, @NotNull Object[] data) {
         ResultSetRow newRow = new ResultSetRow(curRows.size(), data);
         newRow.setVisualNumber(rowNum);
@@ -828,7 +829,11 @@ public class ResultSetModel {
                     visibleAttributes.remove(filterConstraint.getAttribute());
                 } else {
                     if (!visibleAttributes.contains(filterConstraint.getAttribute())) {
-                        visibleAttributes.add((DBDAttributeBinding)filterConstraint.getAttribute());
+                        DBDAttributeBinding attribute = (DBDAttributeBinding) filterConstraint.getAttribute();
+                        if (attribute.getParentObject() == null) {
+                            // Add only root attributes
+                            visibleAttributes.add(attribute);
+                        }
                     }
                 }
             }

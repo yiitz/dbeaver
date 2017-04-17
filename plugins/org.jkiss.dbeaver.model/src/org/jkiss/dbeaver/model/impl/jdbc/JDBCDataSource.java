@@ -112,7 +112,7 @@ public abstract class JDBCDataSource
 
     protected void initializeMainContext(@NotNull DBRProgressMonitor monitor) throws DBCException {
         this.executionContext = new JDBCExecutionContext(this, "Main");
-        this.executionContext.connect(monitor, null, null, false);
+        this.executionContext.connect(monitor, null, null, false, true);
     }
 
     protected Connection openConnection(@NotNull DBRProgressMonitor monitor, @NotNull String purpose)
@@ -246,7 +246,7 @@ public abstract class JDBCDataSource
     public DBCExecutionContext openIsolatedContext(@NotNull DBRProgressMonitor monitor, @NotNull String purpose) throws DBException
     {
         JDBCExecutionContext context = new JDBCExecutionContext(this, purpose);
-        context.connect(monitor, null, null, true);
+        context.connect(monitor, null, null, true, true);
         return context;
     }
 
@@ -325,7 +325,7 @@ public abstract class JDBCDataSource
         if (!container.getDriver().isEmbedded() && container.getPreferenceStore().getBoolean(ModelPreferences.META_SEPARATE_CONNECTION)) {
             synchronized (allContexts) {
                 this.metaContext = new JDBCExecutionContext(this, "Metadata");
-                this.metaContext.connect(monitor, true, null, false);
+                this.metaContext.connect(monitor, true, null, false, true);
             }
         }
         try (JDBCSession session = DBUtils.openMetaSession(monitor, this, ModelMessages.model_jdbc_read_database_meta_data)) {
@@ -593,16 +593,17 @@ public abstract class JDBCDataSource
     // Error assistance
 
     @Override
-    public ErrorType discoverErrorType(@NotNull DBException error)
+    public ErrorType discoverErrorType(@NotNull Throwable error)
     {
-        String sqlState = error.getDatabaseState();
-        if (SQLState.SQL_08000.getCode().equals(sqlState) ||
-            SQLState.SQL_08003.getCode().equals(sqlState) ||
-            SQLState.SQL_08006.getCode().equals(sqlState) ||
-            SQLState.SQL_08007.getCode().equals(sqlState) ||
-            SQLState.SQL_08S01.getCode().equals(sqlState))
-        {
-            return ErrorType.CONNECTION_LOST;
+        String sqlState = SQLState.getStateFromException(error);
+        if (sqlState != null) {
+            if (SQLState.SQL_08000.getCode().equals(sqlState) ||
+                    SQLState.SQL_08003.getCode().equals(sqlState) ||
+                    SQLState.SQL_08006.getCode().equals(sqlState) ||
+                    SQLState.SQL_08007.getCode().equals(sqlState) ||
+                    SQLState.SQL_08S01.getCode().equals(sqlState)) {
+                return ErrorType.CONNECTION_LOST;
+            }
         }
         if (GeneralUtils.getRootCause(error) instanceof SocketException) {
             return ErrorType.CONNECTION_LOST;

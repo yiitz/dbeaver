@@ -98,7 +98,7 @@ public class ReferenceValueEditor {
         try {
             DBSEntityAttribute entityAttribute = binding.getEntityAttribute();
             if (entityAttribute != null) {
-                List<DBSEntityReferrer> refs = DBUtils.getAttributeReferrers(VoidProgressMonitor.INSTANCE, entityAttribute);
+                List<DBSEntityReferrer> refs = DBUtils.getAttributeReferrers(new VoidProgressMonitor(), entityAttribute);
                 DBSEntityReferrer constraint = refs.isEmpty() ? null : refs.get(0);
                 if (constraint instanceof DBSEntityAssociation &&
                     ((DBSEntityAssociation)constraint).getReferencedConstraint() instanceof DBSConstraintEnumerable)
@@ -279,15 +279,20 @@ public class ReferenceValueEditor {
             if (editorControl != null && !editorControl.isDisposed()) {
                 try {
                     Object curValue = valueEditor.extractEditorValue();
+                    final String curTextValue = valueController.getValueHandler().getValueDisplayString(
+                            ((IAttributeController) valueController).getBinding(),
+                            curValue,
+                            DBDDisplayFormat.UI);
+
                     TableItem curItem = null;
                     for (TableItem item : editorSelector.getItems()) {
-                        if (item.getData() == curValue || (item.getData() != null && curValue != null && item.getData().equals(curValue))) {
+                        if (item.getText(0).equals(curTextValue)) {
                             curItem = item;
                             break;
                         }
                     }
                     if (curItem != null) {
-                        editorSelector.select(editorSelector.indexOf(curItem));
+                        editorSelector.setSelection(curItem);
                         editorSelector.showItem(curItem);
                     }
                 } catch (DBException e) {

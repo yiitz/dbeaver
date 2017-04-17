@@ -2,6 +2,7 @@
 <?eclipse version="3.2"?>
 <!--
  * DBeaver - Universal Database Manager
+ * Copyright (C) 2017 Andrew Khitrin (ahitrin@gmail.com) 
  * Copyright (C) 2010-2017 Serge Rider (serge@jkiss.org)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,6 +77,11 @@
                                         </items>
                                     </items>
                                 </folder>
+                                <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivTable" label="%tree.table_privileges.node.name" icon="#permissions" description="Table Privileges" navigable="false">
+                                    <items label="%tree.privilege.node.name" path="tablePrivs" property="tablePrivs" icon="#privilege">
+                                    </items>
+                                </folder>
+
                             </items>
                         </folder>
                         <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleView" label="%tree.views.node.name" icon="#folder_view" description="Views">
@@ -152,6 +158,18 @@
                         <!--folder type="org.jkiss.dbeaver.ext.oracle.model.OracleJavaClass" label="Java" icon="#java" description="Java Classes">
                             <items label="Java Class" path="class" property="javaClasses" icon="#javaClass"/>
                         </folder-->
+                        <folder label="%tree.scheduler.node.name" icon="#scheduler_folder" description="Scheduler objects">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleSchedulerJob" label="%tree.scheduler.jobs.node.name" icon="#scheduler_job_folder" description="Scheduler jobs">
+                                <items label="%tree.scheduler.job.node.name" path="schedulerJob" property="schedulerJobs" icon="icons/scheduled_job.png">
+                                    <items label="%tree.scheduler.job.arguments.node.name" itemLabel="%tree.scheduler.job.argument.node.name" path="argument" property="arguments" icon="#argument" navigable="false" inline="false"/>
+                                </items>
+                            </folder>
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleSchedulerProgram" label="%tree.scheduler.programs.node.name" icon="#scheduler_program_folder" description="Scheduler programs">
+                                <items label="%tree.scheduler.program.node.name" path="schedulerProgram" property="schedulerPrograms" icon="icons/scheduled_program.png">
+                                    <items label="%tree.scheduler.program.arguments.node.name" itemLabel="%tree.scheduler.program.argument.node.name" path="argument" property="arguments" icon="#argument" navigable="false" inline="false"/>
+                                </items>
+                            </folder>
+                        </folder>
                         <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleRecycledObject" label="%tree.recycle_bin.node.name" icon="#recycle_bin" description="Recycle Bin" visibleIf="object.dataSource.adminVisible &amp;&amp; object.dataSource.isAtLeastV10()">
                             <items label="%tree.recycled_object.node.name" path="object" property="recycledObjects" icon="#recycle_bin"/>
                         </folder>
@@ -187,30 +205,34 @@
                     <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleUser" label="%tree.users.node.name" icon="#folder_user" description="Users">
                         <items label="%tree.user.node.name" path="users" property="users" icon="#user">
                             <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivRole" label="%tree.roles.node.name" icon="#folder_role" description="User roles" navigable="false">
-                                <items label="%tree.role.node.name" path="roles" property="rolePrivs" icon="#role">
+                                <items label="%tree.role.node.name" path="roles" property="rolePrivs" icon="#user_group">
                                 </items>
                             </folder>
-                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivSystem" label="%tree.system_privileges.node.name" icon="#folder_privilege" description="System Privileges" navigable="false">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivSystem" label="%tree.system_privileges.node.name" icon="#permissions" description="System Privileges" navigable="false">
                                 <items label="%tree.privilege.node.name" path="sysPrivs" property="systemPrivs" icon="#privilege">
                                 </items>
                             </folder>
-                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivObject" label="%tree.objects.node.name" icon="#folder_privilege" description="Objects" navigable="false">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivObject" label="%tree.objects.node.name" icon="#permissions" description="Objects" navigable="false">
                                 <items label="%tree.privilege.node.name" path="objectPriv" property="objectPrivs" icon="#privilege">
                                 </items>
                             </folder>
                         </items>
                     </folder>
                     <folder type="org.jkiss.dbeaver.ext.oracle.model.OracleRole" label="%tree.roles.node.name" icon="#folder_role" description="Roles">
-                        <items label="%tree.role.node.name" path="roles" property="roles" icon="#role">
-                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivRole" label="%tree.roles.node.name" icon="#folder_role" description="Roles" navigable="false">
-                                <items label="%tree.role.node.name" path="roles" property="rolePrivs" icon="#role">
+                        <items label="%tree.role.node.name" path="roles" property="roles" icon="#user_group">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivUser" label="%tree.users.node.name" icon="#folder_user" description="Users" navigable="false">
+                                <items label="%tree.user.node.name" path="userPrivs" property="userPrivs" icon="#user">
                                 </items>
                             </folder>
-                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivSystem" label="%tree.system_privileges.node.name" icon="#folder_privilege" description="System Privileges" navigable="false">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivRole" label="%tree.roles.node.name" icon="#folder_role" description="Roles" navigable="false">
+                                <items label="%tree.role.node.name" path="roles" property="rolePrivs" icon="#user_group">
+                                </items>
+                            </folder>
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivSystem" label="%tree.system_privileges.node.name" icon="#permissions" description="System Privileges" navigable="false">
                                 <items label="%tree.privilege.node.name" path="sysPrivs" property="systemPrivs" icon="#privilege">
                                 </items>
                             </folder>
-                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivObject" label="%tree.objects.node.name" icon="#folder_privilege" description="Objects" navigable="false">
+                            <folder type="org.jkiss.dbeaver.ext.oracle.model.OraclePrivObject" label="%tree.objects.node.name" icon="#permissions" description="Objects" navigable="false">
                                 <items label="%tree.privilege.node.name" path="objectPriv" property="objectPrivs" icon="#privilege">
                                 </items>
                             </folder>
@@ -224,6 +246,7 @@
                 </folder>
                 <folder type="" label="%tree.administer.node.name" icon="#folder_admin" description="Maintenance/Settings" visibleIf="object.dataSource.adminVisible">
                     <object type="org.jkiss.dbeaver.ext.oracle.editors.OracleSessionEditor" label="%tree.sessions.node.name" icon="#sessions" description="Server session manager" editor="org.jkiss.dbeaver.ext.oracle.editors.OracleSessionEditor"/>
+                    <object type="org.jkiss.dbeaver.ext.oracle.editors.OracleLockEditor" label="%tree.locks.node.name" icon="#locks" description="Server locks manager" editor="org.jkiss.dbeaver.ext.oracle.editors.OracleLockEditor"/>
                     <!--folder type="org.jkiss.dbeaver.ext.oracle.model.OracleRecycledObject" label="Global Recycle Bin" icon="#recycle_bin" description="Global recycle bin" visibleIf="object.dataSource.admin">
                         <items label="Recycled Object" path="object" property="adminRecycleBin" icon="#recycle_bin"/>
                     </folder-->
@@ -305,6 +328,17 @@
             contributor="org.jkiss.dbeaver.ui.editors.sql.SQLEditorContributorNested" type="folder">
             <objectType name="org.jkiss.dbeaver.ext.oracle.model.OracleTable"/>
         </editor>
+        <editor
+                id="org.jkiss.dbeaver.ext.oracle.editors.SchedulerJobLogEditor"
+                class="org.jkiss.dbeaver.ext.oracle.editors.SchedulerJobLogEditor"
+                objectType="org.jkiss.dbeaver.ext.oracle.model.OracleSchedulerJob"
+                main="false"
+                label="%editor.scheduler.job.log.name"
+                description="%editor.scheduler.job.log.description"
+                position="additions_start"
+                icon="icons/job_log.png">
+        </editor>
+
         <manager
             class="org.jkiss.dbeaver.ext.oracle.edit.OracleDataTypeManager"
             objectType="org.jkiss.dbeaver.ext.oracle.model.OracleDataType"/>
@@ -484,6 +518,11 @@
             name="Session Manager"
             class="org.jkiss.dbeaver.ext.oracle.editors.OracleSessionEditor"
             id="org.jkiss.dbeaver.ext.oracle.editors.OracleSessionEditor">
+        </editor>
+        <editor
+            name="Lock Manager"
+            class="org.jkiss.dbeaver.ext.oracle.editors.OracleLockEditor"
+            id="org.jkiss.dbeaver.ext.oracle.editors.OracleLockEditor">
         </editor>
     </extension>
 

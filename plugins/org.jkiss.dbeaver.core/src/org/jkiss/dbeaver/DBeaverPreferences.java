@@ -107,6 +107,7 @@ public final class DBeaverPreferences
     public static final String RS_EDIT_AUTO_UPDATE_VALUE = "resultset.edit.value.autoupdate"; //$NON-NLS-1$
     public static final String RS_COMMIT_ON_EDIT_APPLY = "resultset.commit.oneditapply"; //$NON-NLS-1$
     public static final String RS_COMMIT_ON_CONTENT_APPLY = "resultset.commit.oncontentapply"; //$NON-NLS-1$
+    public static final String RS_EDIT_NEW_ROWS_AFTER = "resultset.edit.new.row.after";
 
     public static final String RESULT_SET_AUTO_FETCH_NEXT_SEGMENT = "resultset.autofetch.next.segment"; //$NON-NLS-1$
     public static final String RESULT_SET_READ_METADATA = "resultset.read.metadata"; //$NON-NLS-1$
@@ -123,6 +124,7 @@ public final class DBeaverPreferences
     public static final String RESULT_SET_PRESENTATION = "resultset.presentation.active"; //$NON-NLS-1$
 
     public static final String RESULT_TEXT_MAX_COLUMN_SIZE = "resultset.text.max.column.size"; //$NON-NLS-1$
+    public static final String RESULT_TEXT_VALUE_FORMAT = "resultset.text.value.format"; //$NON-NLS-1$
 
     public static final String DEFAULT_RESOURCE_ENCODING = "resource.encoding.default";
 }

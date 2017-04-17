@@ -25,7 +25,6 @@ import org.eclipse.jface.action.*;
 import org.eclipse.jface.bindings.keys.KeyStroke;
 import org.eclipse.jface.bindings.keys.ParseException;
 import org.eclipse.jface.commands.ActionHandler;
-import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.IDialogSettings;
 import org.eclipse.jface.fieldassist.ContentProposalAdapter;
 import org.eclipse.jface.fieldassist.IContentProposalProvider;
@@ -59,7 +58,6 @@ import org.eclipse.ui.texteditor.AbstractTextEditor;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
-import org.jkiss.dbeaver.DBeaverPreferences;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.core.DBeaverActivator;
@@ -72,10 +70,8 @@ import org.jkiss.dbeaver.model.meta.IPropertyValueListProvider;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
-import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.ui.actions.datasource.DataSourceInvalidateHandler;
 import org.jkiss.dbeaver.ui.controls.*;
-import org.jkiss.dbeaver.ui.dialogs.ConfirmationDialog;
 import org.jkiss.dbeaver.ui.dialogs.StandardErrorDialog;
 import org.jkiss.dbeaver.ui.dialogs.driver.DriverEditDialog;
 import org.jkiss.dbeaver.ui.editors.text.BaseTextEditor;
@@ -244,21 +240,21 @@ public class UIUtils {
                     return;
                 }
             }
+            Rectangle clientArea = tree.getClientArea();
+            if (clientArea.isEmpty()) {
+                return;
+            }
             int totalWidth = 0;
             final TreeColumn[] columns = tree.getColumns();
             for (TreeColumn column : columns) {
                 column.pack();
                 totalWidth += column.getWidth();
             }
-            Rectangle clientArea = tree.getBounds();
-            if (clientArea.isEmpty()) {
-                return;
-            }
             if (fit) {
                 int areaWidth = clientArea.width;
-                if (tree.getVerticalBar() != null) {
-                    areaWidth -= tree.getVerticalBar().getSize().x;
-                }
+//                if (tree.getVerticalBar() != null) {
+//                    areaWidth -= tree.getVerticalBar().getSize().x;
+//                }
                 if (totalWidth > areaWidth) {
                     GC gc = new GC(tree);
                     try {
@@ -445,7 +441,7 @@ public class UIUtils {
             @Override
             public Boolean runTask() {
                 Shell activeShell = shell != null ? shell : DBeaverUI.getActiveWorkbenchShell();
-                MessageBox messageBox = new MessageBox(activeShell, SWT.ICON_WARNING | SWT.YES | SWT.NO);
+                MessageBox messageBox = new MessageBox(activeShell, SWT.ICON_QUESTION | SWT.YES | SWT.NO);
                 messageBox.setMessage(question);
                 messageBox.setText(title);
                 int response = messageBox.open();
@@ -544,6 +540,7 @@ public class UIUtils {
         createControlLabel(parent, label);
 
         Text text = new Text(parent, style);
+        fixReadonlyTextBackground(text);
         if (value != null) {
             text.setText(value);
         }
@@ -562,6 +559,11 @@ public class UIUtils {
             l.setToolTipText(tooltip);
         }
 
+        return createSpinner(parent, tooltip, value, minimum, maximum);
+    }
+
+    @NotNull
+    public static Spinner createSpinner(Composite parent, String tooltip, int value, int minimum, int maximum) {
         Spinner spinner = new Spinner(parent, SWT.BORDER);
         spinner.setMinimum(minimum);
         spinner.setMaximum(maximum);
@@ -862,7 +864,7 @@ public class UIUtils {
     {
         for (IStatus s = status; s != null; ) {
             if (s.getException() instanceof DBException) {
-                if (showDatabaseError(shell, title, message, (DBException) s.getException())) {
+                if (showDatabaseError(shell, message, (DBException) s.getException())) {
                     // If this DB error was handled by some DB-specific way then just don't care about it
                     return;
                 }
@@ -1330,20 +1332,17 @@ public class UIUtils {
         }
     }
 
-    public static boolean showDatabaseError(Shell shell, String title, String message, DBException error)
+    public static boolean showDatabaseError(Shell shell, String message, DBException error)
     {
         DBPDataSource dataSource = error.getDataSource();
-        DBPErrorAssistant errorAssistant = DBUtils.getAdapter(DBPErrorAssistant.class, dataSource);
-        if (errorAssistant != null) {
-            DBPErrorAssistant.ErrorType errorType = ((DBPErrorAssistant) dataSource).discoverErrorType(error);
-            switch (errorType) {
-                case CONNECTION_LOST:
-                    DataSourceInvalidateHandler.showConnectionLostDialog(shell, message, error);
-                    return true;
-                case DRIVER_CLASS_MISSING:
-                    DriverEditDialog.showBadConfigDialog(shell, message, error);
-                    return true;
-            }
+        DBPErrorAssistant.ErrorType errorType = dataSource == null ? DBPErrorAssistant.ErrorType.NORMAL : DBUtils.discoverErrorType(dataSource, error);
+        switch (errorType) {
+            case CONNECTION_LOST:
+                DataSourceInvalidateHandler.showConnectionLostDialog(shell, message, error);
+                return true;
+            case DRIVER_CLASS_MISSING:
+                DriverEditDialog.showBadConfigDialog(shell, message, error);
+                return true;
         }
 
         return false;
@@ -1548,4 +1547,14 @@ public class UIUtils {
         }
         display.update();
     }
+
+    public static void fixReadonlyTextBackground(Text textField) {
+        if ((textField.getStyle() & SWT.READ_ONLY) == SWT.READ_ONLY) {
+            // Do nothing because in E4.6 there is no good solution: https://bugs.eclipse.org/bugs/show_bug.cgi?id=340889
+            //textField.setBackground(textField.getDisplay().getSystemColor(SWT.COLOR_WIDGET_BACKGROUND));
+        } else {
+            textField.setBackground(null);
+        }
+    }
+
 }

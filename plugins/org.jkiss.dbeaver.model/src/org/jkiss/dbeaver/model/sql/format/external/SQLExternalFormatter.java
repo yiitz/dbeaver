@@ -42,6 +42,7 @@ public class SQLExternalFormatter implements SQLFormatter {
     public static final String FORMATTER_ID = "EXTERNAL";
 
     private static final Log log = Log.getLog(SQLExternalFormatter.class);
+    public static final String VAR_FILE = "file";
 
     @Override
     public String format(String source, SQLFormatterConfiguration configuration) {
@@ -100,7 +101,7 @@ public class SQLExternalFormatter implements SQLFormatter {
                             IOUtils.copyText(new StringReader(source), out);
                         }
                     }
-                    command = command.replace("${file}", tmpFile.getAbsolutePath());
+                    command = command.replace(GeneralUtils.variablePattern(VAR_FILE), tmpFile.getAbsolutePath());
                 }
                 List<String> commandList = ArgumentTokenizer.tokenize(command, false);
                 ProcessBuilder pb = new ProcessBuilder(commandList);
@@ -112,13 +113,13 @@ public class SQLExternalFormatter implements SQLFormatter {
                             stdout.write(source.getBytes(sourceEncoding));
                         }
                     }
-                    int rc = process.waitFor();
                     StringWriter buf = new StringWriter();
                     try (Reader input = new InputStreamReader(process.getInputStream(), sourceEncoding)) {
                         IOUtils.copyText(input, buf);
-                        if (rc != 0) {
-                            log.debug("Formatter result code: " + rc);
-                        }
+                    }
+                    int rc = process.waitFor();
+                    if (rc != 0) {
+                        log.debug("Formatter result code: " + rc);
                     }
                     result = buf.toString();
                 } finally {

@@ -798,6 +798,11 @@ public class EntityEditor extends MultiPageDatabaseEditor
         return DBUtils.getContainer(getDatabaseObject());
     }
 
+    @Override
+    public void recreateEditorControl() {
+        recreatePages();
+    }
+
     private static final int MAX_BREADCRUMBS_MENU_ITEM = 300;
 
     private void createPathRow(ToolBar infoGroup, final DBNDatabaseNode databaseNode)
@@ -823,7 +828,7 @@ public class EntityEditor extends MultiPageDatabaseEditor
                         }
                         breadcrumbsMenu = new Menu(item.getParent().getShell());
                         try {
-                            final DBNNode[] childNodes = NavigatorUtils.getNodeChildrenFiltered(VoidProgressMonitor.INSTANCE, databaseNode, false);
+                            final DBNNode[] childNodes = NavigatorUtils.getNodeChildrenFiltered(new VoidProgressMonitor(), databaseNode, false);
                             if (!ArrayUtils.isEmpty(childNodes)) {
                                 for (final DBNNode folderItem : childNodes) {
                                     MenuItem childItem = new MenuItem(breadcrumbsMenu, SWT.NONE);

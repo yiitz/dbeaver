@@ -17,6 +17,7 @@
 package org.jkiss.dbeaver.ui.editors.text;
 
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jface.action.GroupMarker;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.action.IMenuManager;
@@ -46,6 +47,7 @@ import org.jkiss.dbeaver.ui.dialogs.DialogUtils;
 import org.jkiss.dbeaver.ui.editors.EditorUtils;
 import org.jkiss.dbeaver.ui.editors.INonPersistentEditorInput;
 import org.jkiss.dbeaver.ui.editors.SubEditorSite;
+import org.jkiss.dbeaver.ui.editors.content.ContentEditorInput;
 import org.jkiss.dbeaver.utils.ContentUtils;
 import org.jkiss.dbeaver.utils.GeneralUtils;
 import org.jkiss.utils.IOUtils;
@@ -60,6 +62,8 @@ import java.util.Map;
  * Contains some common dbeaver text editor adaptions.
  */
 public abstract class BaseTextEditor extends AbstractDecoratedTextEditor implements ISingleControlEditor {
+
+    public static final String TEXT_EDITOR_CONTEXT = "org.eclipse.ui.textEditorScope";
 
     public static final String GROUP_SQL_PREFERENCES = "sql.preferences";
     public static final String GROUP_SQL_ADDITIONS = "sql.additions";
@@ -94,11 +98,28 @@ public abstract class BaseTextEditor extends AbstractDecoratedTextEditor impleme
 //        return fScriptColumn;
 //    }
 
+
+    @Override
+    protected void doSetInput(IEditorInput input) throws CoreException {
+        if (input != getEditorInput()) {
+            releaseEditorInput();
+        }
+        super.doSetInput(input);
+    }
+
     @Override
     public void dispose()
     {
+        releaseEditorInput();
 //        fLineColumn = null;
         super.dispose();
+    }
+
+    public void releaseEditorInput() {
+        IEditorInput editorInput = getEditorInput();
+        if (editorInput instanceof ContentEditorInput) {
+            ((ContentEditorInput) editorInput).release();
+        }
     }
 
     @Nullable
@@ -176,11 +197,13 @@ public abstract class BaseTextEditor extends AbstractDecoratedTextEditor impleme
         }
     }
 
+    @Nullable
     public TextViewer getTextViewer()
     {
         return (TextViewer) getSourceViewer();
     }
 
+    @Nullable
     public SourceViewer getViewer()
     {
         return (SourceViewer) super.getSourceViewer();

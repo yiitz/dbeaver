@@ -39,11 +39,12 @@ import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.Log;
 import org.jkiss.dbeaver.core.CoreMessages;
 import org.jkiss.dbeaver.core.DBeaverUI;
-import org.jkiss.dbeaver.model.DBPImage;
-import org.jkiss.dbeaver.model.IDataSourceContainerProvider;
+import org.jkiss.dbeaver.model.*;
+import org.jkiss.dbeaver.model.data.DBDDisplayFormat;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.runtime.AbstractJob;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
+import org.jkiss.dbeaver.model.runtime.VoidProgressMonitor;
 import org.jkiss.dbeaver.runtime.properties.*;
 import org.jkiss.dbeaver.ui.*;
 import org.jkiss.dbeaver.ui.controls.ObjectViewerRenderer;
@@ -75,7 +76,7 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
     private PropertySourceAbstract listPropertySource;
 
     private ObjectViewerRenderer renderer;
-    private ViewerColumnController columnController;
+    protected ViewerColumnController columnController;
 
     // Sample flag. True only when initial content is packed. Used to provide actual cell data to Tree/Table pack() methods
     // After content is loaded is always false (and all hyperlink cells have empty text)
@@ -140,7 +141,7 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
             //UIUtils.applyCustomTolTips(table);
             //itemsEditor = new TableEditor(table);
             editorActivationStrategy = new EditorActivationStrategy(tableViewer);
-            TableViewerEditor.create(tableViewer, editorActivationStrategy, ColumnViewerEditor.TABBING_CYCLE_IN_ROW);
+            TableViewerEditor.create(tableViewer, editorActivationStrategy, ColumnViewerEditor.TABBING_VERTICAL | ColumnViewerEditor.TABBING_HORIZONTAL);
             table.addTraverseListener(traverseListener);
         }
         //editorActivationStrategy.setEnableEditorActivationWithKeyboard(true);
@@ -749,9 +750,58 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
     // Clipboard
 
     @Override
-    public void addClipboardData(ClipboardData clipboardData) {
-        // Cope selected cells
-        final String selectedText = getRenderer().getSelectedText();
+    public void addClipboardData(CopyMode mode, ClipboardData clipboardData) {
+        String selectedText;
+        if (mode == CopyMode.ADVANCED) {
+            // Multiple rows selected
+            // Copy all of them in tsv format
+            selectedText = copyGridToText();
+            if (!CommonUtils.isEmpty(selectedText)) {
+                clipboardData.addTransfer(TextTransfer.getInstance(), selectedText);
+            }
+        } else {
+            IStructuredSelection selection = itemsViewer.getStructuredSelection();
+            if (selection.size() > 1) {
+                StringBuilder buf = new StringBuilder();
+                for (Iterator iter = selection.iterator(); iter.hasNext(); ) {
+                    Object object = getObjectValue((OBJECT_TYPE) iter.next());
+
+                    ObjectColumn nameColumn = null;
+                    int columnsCount = columnController.getColumnsCount();
+                    for (int i = 0 ; i < columnsCount; i++) {
+                        ObjectColumn column = getColumnByIndex(i);
+                        if (column.isNameColumn(object)) {
+                            nameColumn = column;
+                            break;
+                        }
+                    }
+
+                    String objectName = null;
+                    if (nameColumn != null) {
+                        try {
+                            ObjectPropertyDescriptor nameProperty = nameColumn.getProperty(object);
+                            if (nameProperty != null) {
+                                objectName = CommonUtils.toString(nameProperty.readValue(object, null));
+                            }
+                        } catch (Throwable e) {
+                            log.debug(e);
+                        }
+                    }
+                    if (objectName == null) {
+                        if (object instanceof DBPNamedObject) {
+                            objectName = ((DBPNamedObject) object).getName();
+                        } else {
+                            objectName = DBValueFormatting.getDefaultValueDisplayString(object, DBDDisplayFormat.UI);
+                        }
+                    }
+                    if (buf.length() > 0) buf.append("\n");
+                    buf.append(objectName);
+                }
+                selectedText = buf.toString();
+            } else {
+                selectedText = getRenderer().getSelectedText();
+            }
+        }
         if (!CommonUtils.isEmpty(selectedText)) {
             clipboardData.addTransfer(TextTransfer.getInstance(), selectedText);
         }
@@ -854,7 +904,7 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
     //////////////////////////////////////////////////////
     // List sorter
 
-    protected class ObjectColumnLabelProvider extends ColumnLabelProvider {
+    protected class ObjectColumnLabelProvider extends ColumnLabelProvider implements ILabelProviderEx {
         protected final ObjectColumn objectColumn;
 
         ObjectColumnLabelProvider(ObjectColumn objectColumn) {
@@ -880,24 +930,7 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
 
         @Override
         public String getText(Object element) {
-            Object cellValue = getCellValue(element, objectColumn);
-            if (cellValue instanceof LazyValue) {
-                cellValue = ((LazyValue) cellValue).value;
-            }
-            if (!sampleItems && renderer.isHyperlink(cellValue)) {
-                return ""; //$NON-NLS-1$
-            }
-            final Object objectValue = getObjectValue((OBJECT_TYPE) element);
-            if (objectValue == null) {
-                // This may happen if list redraw happens during node dispose
-                return "";
-            }
-            final ObjectPropertyDescriptor prop = getPropertyByObject(objectColumn, objectValue);
-            if (prop != null) {
-                return ObjectViewerRenderer.getCellString(cellValue, prop.isNameProperty());
-            } else {
-                return "";
-            }
+            return getText(element, true);
         }
 
         @Override
@@ -912,6 +945,31 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
         @Override
         public Color getForeground(Object element) {
             return getObjectForeground((OBJECT_TYPE) element);
+        }
+
+        @Override
+        public String getText(Object element, boolean forUI) {
+            Object cellValue = getCellValue(element, objectColumn);
+            if (cellValue instanceof LazyValue) {
+                cellValue = ((LazyValue) cellValue).value;
+            }
+            if (forUI && !sampleItems && renderer.isHyperlink(cellValue)) {
+                return ""; //$NON-NLS-1$
+            }
+            final Object objectValue = getObjectValue((OBJECT_TYPE) element);
+            if (objectValue == null) {
+                // This may happen if list redraw happens during node dispose
+                return "";
+            }
+            final ObjectPropertyDescriptor prop = getPropertyByObject(objectColumn, objectValue);
+            if (prop != null) {
+                if (forUI && cellValue instanceof Boolean) {
+                    return "";
+                }
+                return ObjectViewerRenderer.getCellString(cellValue, prop.isNameProperty());
+            } else {
+                return "";
+            }
         }
     }
 
@@ -980,7 +1038,7 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
                                     // Do not paint over active editor
                                     return;
                                 }
-                                renderer.paintCell(e, object, e.index, prop.isEditable(objectValue));
+                                renderer.paintCell(e, object, e.item, e.index, prop.isEditable(objectValue));
                             }
                         }
                         break;
@@ -1100,6 +1158,41 @@ public abstract class ObjectListControl<OBJECT_TYPE> extends ProgressPageControl
         protected Object getCellValue(Object element, int columnIndex) {
             return ObjectListControl.this.getCellValue(element, columnIndex);
         }
+    }
+
+    private String copyGridToText() {
+        StringBuilder buf = new StringBuilder();
+        int columnsCount = columnController.getColumnsCount();
+        {
+            // Header
+            for (int i = 0; i < columnsCount; i++) {
+                ObjectColumn column = getColumnByIndex(i);
+                if (i > 0) buf.append("\t");
+                buf.append(column.displayName);
+            }
+            buf.append("\n");
+        }
+        List<OBJECT_TYPE> elementList = itemsViewer.getStructuredSelection().toList();
+        for (OBJECT_TYPE element : elementList) {
+            Object object = getObjectValue(element);
+            for (int i = 0; i < columnsCount; i++) {
+                ObjectPropertyDescriptor property = getColumnByIndex(i).getProperty(object);
+                try {
+                    Object cellValue = property == null ? null : property.readValue(object, new VoidProgressMonitor());
+                    if (i > 0) buf.append("\t");
+                    String strValue = DBValueFormatting.getDefaultValueDisplayString(cellValue, DBDDisplayFormat.UI);
+                    if (strValue.contains("\n") || strValue.contains("\t")) {
+                        strValue = '"' + strValue + '"';
+                    }
+                    buf.append(strValue);
+                } catch (Throwable e) {
+                    // ignore
+                }
+            }
+            buf.append("\n");
+        }
+
+        return buf.toString();
     }
 
 }

@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.jkiss.dbeaver.ui.editors.sql.syntax.tokens;
+package org.jkiss.dbeaver.ui;
 
 /**
- * SQLFileIncludeToken
- *
- * @author Serge Rider
+ * Extended label provider
  */
-public class SQLFileIncludeToken extends SQLControlToken {
-
-    public SQLFileIncludeToken(Object data)
-    {
-        super(data);
-    }
+public interface ILabelProviderEx
+{
+    /**
+     * The same as ILabelProvider.getText but with extra flag.
+     * @param forUI text value was requested by UI to represent value on screen. In some cases real value has to be masked - e.g. when custom value renderer is used.
+     */
+    String getText(Object element, boolean forUI);
 
 }

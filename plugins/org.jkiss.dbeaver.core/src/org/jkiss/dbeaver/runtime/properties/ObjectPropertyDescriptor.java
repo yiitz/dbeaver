@@ -18,6 +18,7 @@ package org.jkiss.dbeaver.runtime.properties;
 
 import org.eclipse.core.runtime.Platform;
 import org.jkiss.code.NotNull;
+import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.model.DBPPersistedObject;
 import org.jkiss.dbeaver.model.preferences.DBPPropertyDescriptor;
 import org.jkiss.dbeaver.model.preferences.DBPPropertySource;
@@ -206,7 +207,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
         return displayFormat;
     }
 
-    public Object readValue(Object object, DBRProgressMonitor progressMonitor)
+    public Object readValue(Object object, @Nullable DBRProgressMonitor progressMonitor)
         throws IllegalAccessException, IllegalArgumentException, InvocationTargetException
     {
         if (object == null) {
@@ -255,7 +256,7 @@ public class ObjectPropertyDescriptor extends ObjectAttributeDescriptor implemen
             }
             if (getParent() != null) {
                 // Use void monitor because this object already read by readValue
-                object = getParent().getGroupObject(object, VoidProgressMonitor.INSTANCE);
+                object = getParent().getGroupObject(object, new VoidProgressMonitor());
             }
             if (value == null) {
                 // Check for primitive argument
